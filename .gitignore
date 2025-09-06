@@ -1,0 +1,42 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg-info/
+*.egg
+*.log
+
+# Virtual environments
+.env
+.venv
+env/
+venv/
+
+# IDE / Editor
+.vscode/
+.idea/
+*.swp
+
+# Byte-compiled / optimized / DLL files
+*.dll
+*.dylib
+*.pdb
+
+# Distribution / packaging
+build/
+dist/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Coverage / test
+.coverage
+htmlcov/
+.tox/
+pytest_cache/
+.pytest_cache/
+.mypy_cache/
+.cache/
