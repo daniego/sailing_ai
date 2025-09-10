@@ -35,6 +35,12 @@ async def home(request: Request):
     context = {"request": request, "app_name": "Sailing AI"}
     return templates.TemplateResponse("index.html", context)
 
+@app.get("/controls", response_class=HTMLResponse)
+async def controls(request: Request):
+    # Additional context can be passed to the template via this dict
+    context = {"request": request, "app_name": "Sailing AI"}
+    return templates.TemplateResponse("controls.html", context)
+
 # Optional: custom 404 to return JSON for /api/* and HTML for others
 @app.exception_handler(404)
 async def not_found(request: Request, exc):

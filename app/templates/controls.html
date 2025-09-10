@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sailing Boat Control</title>
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: #e0f7fa;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            height: 100vh;
+        }
+
+        .boat-container {
+            position: relative;
+            width: 90%;
+            max-width: 600px;
+            height: 300px;
+            margin-top: 20px;
+            background: #b3e5fc;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.3);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+        }
+
+        .boat {
+            position: relative;
+            width: 200px;
+            height: 200px;
+        }
+
+        .hull {
+            width: 100%;
+            height: 60px;
+            background: #795548;
+            border-radius: 100px 100px 20px 20px;
+            position: absolute;
+            bottom: 0;
+        }
+
+        .sail {
+            width: 0;
+            height: 0;
+            border-left: 50px solid transparent;
+            border-right: 50px solid transparent;
+            border-bottom: 100px solid white;
+            position: absolute;
+            top: 0;
+            left: 50px;
+        }
+
+        .jib {
+            width: 0;
+            height: 0;
+            border-left: 30px solid transparent;
+            border-right: 30px solid transparent;
+            border-bottom: 60px solid lightgray;
+            position: absolute;
+            top: 20px;
+            left: 120px;
+        }
+
+        .rudder, .propeller {
+            position: absolute;
+            bottom: -10px;
+            width: 30px;
+            height: 30px;
+        }
+
+        .rudder {
+            left: 10px;
+            background: #4e342e;
+            border-radius: 5px;
+        }
+
+        .propeller {
+            right: 10px;
+            background: #607d8b;
+            border-radius: 50%;
+        }
+
+        .controls {
+            margin-top: 20px;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .controls button {
+            padding: 10px 15px;
+            font-size: 14px;
+            cursor: pointer;
+            border: none;
+            border-radius: 5px;
+            background-color: #0288d1;
+            color: white;
+            transition: background-color 0.3s;
+        }
+
+        .controls button:hover {
+            background-color: #0277bd;
+        }
+
+        .alerts {
+            margin-top: 20px;
+            width: 90%;
+            max-width: 600px;
+            background: #fff;
+            border: 2px solid #ffc107;
+            border-radius: 8px;
+            padding: 10px;
+            font-family: monospace;
+            font-size: 14px;
+            color: #333;
+            max-height: 150px;
+            overflow-y: auto;
+        }
+
+        .alert-message {
+            margin-bottom: 5px;
+        }
+
+        .alert-error {
+            color: #f44336;
+        }
+
+        .alert-info {
+            color: #333;
+        }
+
+        .instruments {
+            margin-top: 30px;
+            width: 90%;
+            max-width: 600px;
+            background: #fff3e0;
+            padding: 15px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.2);
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+            gap: 10px;
+        }
+
+        .instrument {
+            background: #ffe0b2;
+            padding: 10px;
+            border-radius: 5px;
+            text-align: center;
+            font-size: 14px;
+        }
+
+        @media (max-width: 600px) {
+            .controls button {
+                flex: 1 0 40%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1>Sailing Boat Controls</h1>
+    <div class="boat-container">
+        <div class="boat">
+            <div class="sail"></div>
+            <div class="jib"></div>
+            <div class="hull"></div>
+            <div class="rudder"></div>
+            <div class="propeller"></div>
+        </div>
+    </div>
+    <div class="controls">
+        <label>
+            Rudder:
+            <input type="range" id="rudder-control" min="-45" max="45" value="0" oninput="updateControl('rudder', this.value)">
+            <span id="rudder-value">0°</span>
+            <button type="button" onclick="resetRudder()">Center</button>
+        </label>
+        <label>
+            Mainsail:
+            <input type="range" id="mainsail-control" min="0" max="100" value="0" oninput="updateControl('mainsail', this.value)">
+            <span id="mainsail-value">0%</span>
+        </label>
+        <label>
+            Jib:
+            <input type="range" id="jib-control" min="0" max="100" value="0" oninput="updateControl('jib', this.value)">
+            <span id="jib-value">0%</span>
+        </label>
+        <label>
+            Propeller:
+            <input type="range" id="propeller-control" min="0" max="100" value="0" oninput="updateControl('propeller', this.value)">
+            <span id="propeller-value">0%</span>
+        </label>
+        <button onclick="fetchStatus()">Refresh Status</button>
+    </div>
+    <div class="alerts" id="alert-board"></div>
+    <div class="instruments">
+        <div class="instrument">Speed: 5 knots</div>
+        <div class="instrument">Wind Dir: 135°</div>
+        <div class="instrument">Heel: 10°</div>
+        <div class="instrument">GPS: 42.36° N, 71.06° W</div>
+        <div class="instrument">Battery: 85%</div>
+    </div>
+    <script>
+        function updateControl(component, value) {
+            fetch('127.0.0.1:8009/api/control', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ component, value })
+            }).then(response => response.json())
+              .then(data => showAlert(`Updated ${component} to ${value}`))
+              .catch(err => showAlert(`Error updating ${component}: ${err.message}`, false, false));
+
+            document.getElementById(`${component}-value`).innerText =
+                component === 'rudder' ? `${value}°` : `${value}%`;
+        }
+
+        function fetchStatus() {
+            fetch('/api/control')
+                .then(res => res.json())
+                .then(data => {
+                    ['rudder', 'mainsail', 'jib', 'propeller'].forEach(comp => {
+                        const value = data[comp] || 0;
+                        const input = document.getElementById(`${comp}-control`);
+                        const display = document.getElementById(`${comp}-value`);
+                        if (input && display) {
+                            input.value = value;
+                            display.innerText = comp === 'rudder' ? `${value}°` : `${value}%`;
+                        }
+                    });
+                    showAlert("Status refreshed");
+                })
+                .catch(err => showAlert(`Failed to fetch status: ${err.message}`, false, false));
+        }
+
+        window.onload = fetchStatus;
+
+        function showAlert(message, showLog = true, isOk = true) {
+            const board = document.getElementById("alert-board");
+            const alertEl = document.createElement("div");
+            alertEl.className = `alert-message ${isOk ? "alert-info" : "alert-error"}`;
+            alertEl.textContent = message;
+            board.appendChild(alertEl);
+            board.scrollTop = board.scrollHeight;
+
+            if (showLog) {
+                isOk ? console.log(message) : console.error(message);
+            }
+        }
+
+        function resetRudder() {
+            const input = document.getElementById("rudder-control");
+            input.value = 0;
+            updateControl("rudder", 0);
+        }
+    </script>
+</body>
+</html>
