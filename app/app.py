@@ -1,9 +1,21 @@
-
-
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from pydantic import BaseModel
+
+try:
+    from .stepper import PRESET_STEPS, StepperError, controller as stepper_controller
+except ImportError:  # pragma: no cover
+    from stepper import PRESET_STEPS, StepperError, controller as stepper_controller  # type: ignore[no-redef]
+
+
+class StepperCommand(BaseModel):
+    direction: str
+    rotation: str | None = None
+    steps: int | None = None
+    delay: float | None = None
 
 # Create the FastAPI application
 app = FastAPI(title="Sailing AI", version="0.1.0")
@@ -26,6 +38,51 @@ async def health():
 @app.get("/api/items/{item_id}")
 async def read_item(item_id: int, q: str | None = None):
     return {"item_id": item_id, "query": q}
+
+
+@app.post("/api/stepper")
+async def run_stepper(command: StepperCommand):
+    direction = command.direction.lower()
+    if direction not in ("clockwise", "counter-clockwise"):
+        raise HTTPException(status_code=400, detail="direction must be 'clockwise' or 'counter-clockwise'")
+
+    rotation = command.rotation.lower() if command.rotation else None
+    steps = command.steps
+
+    if steps is None:
+        if rotation:
+            preset = PRESET_STEPS.get(rotation)
+            if preset is None:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"rotation must be one of {', '.join(sorted(PRESET_STEPS))}",
+                )
+            steps = preset
+        else:
+            steps = PRESET_STEPS["full"]
+    elif steps <= 0:
+        raise HTTPException(status_code=400, detail="steps must be a positive integer")
+
+    kwargs = {}
+    if command.delay is not None:
+        if command.delay <= 0:
+            raise HTTPException(status_code=400, detail="delay must be positive")
+        kwargs["delay"] = command.delay
+
+    try:
+        await run_in_threadpool(stepper_controller.spin, direction, steps, **kwargs)
+    except StepperError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except RuntimeError as exc:  # propagate GPIO issues
+        raise HTTPException(status_code=500, detail="Stepper controller error") from exc
+
+    return {
+        "status": "ok",
+        "direction": direction,
+        "steps": steps,
+        "rotation": rotation,
+        **({"delay": kwargs["delay"]} if "delay" in kwargs else {}),
+    }
 
 # --- Frontend Route (HTML) ---
 # Renders templates/index.html. You can add your JS/CSS under /static and reference them in the template.

@@ -110,6 +110,17 @@
             background-color: #0277bd;
         }
 
+        .stepper-controls {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .stepper-controls span {
+            font-weight: bold;
+        }
+
         .alerts {
             margin-top: 20px;
             width: 90%;
@@ -199,6 +210,13 @@
             <span id="propeller-value">0%</span>
         </label>
         <button onclick="fetchStatus()">Refresh Status</button>
+        <div class="stepper-controls">
+            <span>Step Motor:</span>
+            <button type="button" onclick="spinStepper('clockwise', 'half')">Half Turn CW</button>
+            <button type="button" onclick="spinStepper('counter-clockwise', 'half')">Half Turn CCW</button>
+            <button type="button" onclick="spinStepper('clockwise', 'full')">Full Turn CW</button>
+            <button type="button" onclick="spinStepper('counter-clockwise', 'full')">Full Turn CCW</button>
+        </div>
     </div>
     <div class="alerts" id="alert-board"></div>
     <div class="instruments">
@@ -243,6 +261,38 @@
         }
 
         window.onload = fetchStatus;
+
+        const STEPPER_STEP_COUNTS = {
+            half: 2137,
+            full: 4274
+        };
+
+        function spinStepper(direction, rotation) {
+            const steps = STEPPER_STEP_COUNTS[rotation];
+            console.log(`Spinning stepper ${rotation} turn ${direction} (${steps} steps)`);
+            if (!steps) {
+                showAlert(`Unknown rotation "${rotation}"`, true, false);
+                return;
+            }
+
+            const directionLabel = direction === "clockwise" ? "clockwise" : "counter-clockwise";
+            console.log(`Sending stepper command: direction ${direction}, rotation ${rotation} ${steps} steps`);
+            fetch('/api/stepper', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ direction, rotation, steps, delay: 0.0008 })
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`Stepper request failed with ${response.status}`);
+                }
+                return response.json().catch(() => ({}));
+            })
+            .then(() => showAlert(`Stepper ${rotation} turn ${directionLabel} command sent`))
+            .catch(err => showAlert(`Failed to run stepper: ${err.message}`, true, false));
+        }
 
         function showAlert(message, showLog = true, isOk = true) {
             const board = document.getElementById("alert-board");
