@@ -246,6 +246,28 @@
     </div>
     <script>
         function updateControl(component, value) {
+            if (component === 'rudder') {
+                const angle = Number(value);
+                fetch('/api/rudder', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ angle })
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`Rudder request failed with ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(data => showAlert(`Rudder set to ${data.angle?.toFixed(1) ?? angle}°`))
+                .catch(err => showAlert(`Error adjusting rudder: ${err.message}`, true, false));
+
+                document.getElementById('rudder-value').innerText = `${angle}°`;
+                return;
+            }
+
             fetch('127.0.0.1:8009/api/control', {
                 method: 'POST',
                 headers: {

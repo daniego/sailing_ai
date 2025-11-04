@@ -10,12 +10,21 @@ try:
 except ImportError:  # pragma: no cover
     from stepper import PRESET_STEPS, StepperError, controller as stepper_controller  # type: ignore[no-redef]
 
+try:
+    from .servo import ServoError, controller as servo_controller
+except ImportError:  # pragma: no cover
+    from servo import ServoError, controller as servo_controller  # type: ignore[no-redef]
+
 
 class StepperCommand(BaseModel):
     direction: str
     rotation: str | None = None
     steps: int | None = None
     delay: float | None = None
+
+
+class RudderCommand(BaseModel):
+    angle: float
 
 # Create the FastAPI application
 app = FastAPI(title="Sailing AI", version="0.1.0")
@@ -38,6 +47,18 @@ async def health():
 @app.get("/api/items/{item_id}")
 async def read_item(item_id: int, q: str | None = None):
     return {"item_id": item_id, "query": q}
+
+
+@app.post("/api/rudder")
+async def set_rudder(command: RudderCommand):
+    try:
+        angle = await run_in_threadpool(servo_controller.set_angle, command.angle)
+    except ServoError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=500, detail="Servo controller error") from exc
+
+    return {"status": "ok", "angle": angle}
 
 
 @app.post("/api/stepper")
