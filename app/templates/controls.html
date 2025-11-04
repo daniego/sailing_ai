@@ -110,6 +110,24 @@
             background-color: #0277bd;
         }
 
+        .controls button:disabled {
+            background-color: #81d4fa;
+            cursor: not-allowed;
+            opacity: 0.7;
+        }
+
+        .controls button.stepper-active {
+            background-color: #ff9800;
+            color: #fff;
+            opacity: 1;
+        }
+
+        .controls button.stepper-active:disabled {
+            background-color: #ff9800;
+            color: #fff;
+            opacity: 1;
+        }
+
         .stepper-controls {
             display: flex;
             flex-wrap: wrap;
@@ -212,10 +230,10 @@
         <button onclick="fetchStatus()">Refresh Status</button>
         <div class="stepper-controls">
             <span>Step Motor:</span>
-            <button type="button" onclick="spinStepper('clockwise', 'half')">Half Turn CW</button>
-            <button type="button" onclick="spinStepper('counter-clockwise', 'half')">Half Turn CCW</button>
-            <button type="button" onclick="spinStepper('clockwise', 'full')">Full Turn CW</button>
-            <button type="button" onclick="spinStepper('counter-clockwise', 'full')">Full Turn CCW</button>
+            <button type="button" data-stepper-btn onclick="spinStepper(this, 'clockwise', 'half')">Half Turn CW</button>
+            <button type="button" data-stepper-btn onclick="spinStepper(this, 'counter-clockwise', 'half')">Half Turn CCW</button>
+            <button type="button" data-stepper-btn onclick="spinStepper(this, 'clockwise', 'full')">Full Turn CW</button>
+            <button type="button" data-stepper-btn onclick="spinStepper(this, 'counter-clockwise', 'full')">Full Turn CCW</button>
         </div>
     </div>
     <div class="alerts" id="alert-board"></div>
@@ -267,13 +285,38 @@
             full: 4274
         };
 
-        function spinStepper(direction, rotation) {
+        let stepperBusy = false;
+        let activeStepperButton = null;
+
+        function setStepperBusy(busy, activeBtn = null) {
+            stepperBusy = busy;
+            document.querySelectorAll('[data-stepper-btn]').forEach(btn => {
+                btn.disabled = busy;
+                if (!busy) {
+                    btn.classList.remove('stepper-active');
+                }
+            });
+
+            if (busy && activeBtn) {
+                activeStepperButton = activeBtn;
+                activeStepperButton.classList.add('stepper-active');
+            } else if (!busy) {
+                activeStepperButton = null;
+            }
+        }
+
+        function spinStepper(button, direction, rotation) {
             const steps = STEPPER_STEP_COUNTS[rotation];
             console.log(`Spinning stepper ${rotation} turn ${direction} (${steps} steps)`);
             if (!steps) {
                 showAlert(`Unknown rotation "${rotation}"`, true, false);
                 return;
             }
+
+            if (stepperBusy) {
+                return;
+            }
+            setStepperBusy(true, button);
 
             const directionLabel = direction === "clockwise" ? "clockwise" : "counter-clockwise";
             console.log(`Sending stepper command: direction ${direction}, rotation ${rotation} ${steps} steps`);
@@ -291,7 +334,8 @@
                 return response.json().catch(() => ({}));
             })
             .then(() => showAlert(`Stepper ${rotation} turn ${directionLabel} command sent`))
-            .catch(err => showAlert(`Failed to run stepper: ${err.message}`, true, false));
+            .catch(err => showAlert(`Failed to run stepper: ${err.message}`, true, false))
+            .finally(() => setStepperBusy(false));
         }
 
         function showAlert(message, showLog = true, isOk = true) {

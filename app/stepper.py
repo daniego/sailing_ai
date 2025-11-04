@@ -107,12 +107,11 @@ class StepperController:
             time.sleep(delay)
 
 
-controller = StepperController()
+controller = StepperController(delay=0.008)
 atexit.register(controller.cleanup)
 
+# Empirically calibrated step counts for this setup (roughly 180° / 360°).
 PRESET_STEPS = {
-    # Calibrated for this build: ~1366 steps ~= 180°, ~2731 steps ~= 360°
     "half": 2137,
     "full": 4274,
-    "delay": 0.0008,
 }
